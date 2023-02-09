@@ -1,0 +1,129 @@
+func ISMCTS():
+    finish_time
+    gamestate
+    root_node
+    while(current_time < finish_time)
+        determinize and save to list 
+        SELECT(root_node , determinization)
+        if not all_children_present(current_node , determinization)
+            EXPAND(current_node , determinization)
+        r = SIMULATE(determinization)
+        BACKPROPAGATE(r , terminal_node)
+    return move with max visit_count.
+
+GAMESTATE
+    payload
+    inference(trump/cards)
+    root_node
+    current_determinization
+    determinizations[]
+
+NODE
+    parent
+    previous_action
+    children[]
+    availability_count.
+    visit_count.
+    normalized_reward
+    UCB1_score
+
+    insert_child()
+
+
+DETERMINIZATION
+    id
+    index_to_play
+    hand_initiator
+    bid_winner
+    our_points
+    opponent_points
+    trump_just_revealed?
+    cards_with_players[4]
+    cards_played_this_hand
+    trump_revealed?
+    trump_suit
+    legal_actions[]
+
+    determinize()
+    get_moves()
+    make_move()
+    display()
+
+
+
+
+func SELECT():
+    current_node
+    availability_count++ for all nodes for avalilable moves.
+    while not is_terminal(determinization) and if all_children_present(current_node , determinization)
+        current_node = best_child(current_node)
+        make corresponding move for determinization
+    
+func EXPAND():
+    choose a remaining move randomly
+    make new node with parent = current_node and current_node.children.push(new_node)
+    make corresponding move in determinization
+    current_node = new_node
+    availability_count++
+
+func SIMULATE():
+    while not is_terminal(determinization)
+        choose a random move
+        determinization.make_move(move)
+    return normalized_reward
+
+func BACKPROPAGATE():
+    while current_node is not root_node    
+        visit_count++
+        reward += normalized_reward
+        current_node = current_node.parent
+
+
+func get_moves():
+    if we initiate.
+        (all cards)
+    elseif leading suit.
+        (play lead suit)
+    else no leading suit.
+        if trump is revealed.
+            if we just revealed it.
+                (play winning trump->play any trump->play any)
+            elseif we didn't just reveal it
+                (play any).
+        elseif trump is not revealed.
+            if I don't know the trump
+                (reveal trump).
+                (play anything else).
+            elseif I know the trump
+                (reveal and play(winning trump->any trump->any card))
+                (play any card.)
+
+func make_move():
+    if move is reveal trump only
+        trump_revealed = true 
+        legal_actions = null
+    elseif not is_last_move(move)
+        if move is play only
+            index_to_play = next index_to_play
+            add card to cards_played_this_hand
+            remove card from the player to move
+            legal_actions = null
+        elseif move is reveal and play 
+            trump_revealed = true
+            <same as above condition>
+    elseif is_last_move(move)
+        if move is play only
+            add card to cards_played_this_hand
+            if we won hand
+                our_points += hand_points
+            else
+                opponent_points += hand_points
+            index_to_play = winner 
+            hand_initiator = winner
+            cards_played_this_hand = null
+            legal_actions = null
+            remove card from the player to move
+        else if move is reveal and play
+            trump_revealed = true
+            <same as above condition>
+
