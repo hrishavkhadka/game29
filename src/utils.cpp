@@ -108,7 +108,7 @@ unsigned int get_hand_winner_index(const std::vector<Card>& played , unsigned in
             if((card.suit == lead_suit) && (CardPower(card.rank) > CardPower(top_card.rank)))
             {
                 top_card = card;
-                winner_index = (winner_index+i)%4;
+                winner_index = (initiator_index+i)%4;
             }
         }
     }
@@ -122,18 +122,18 @@ unsigned int get_hand_winner_index(const std::vector<Card>& played , unsigned in
                 if(top_card.suit != trump_suit)
                 {
                     top_card = card;
-                    winner_index = (winner_index+i)%4;
+                    winner_index = (initiator_index+i)%4;
                 }
                 else if((top_card.suit == trump_suit) && (CardPower(card.rank) > CardPower(top_card.rank)))
                 {
                     top_card = card;
-                    winner_index = (winner_index+i)%4;
+                    winner_index = (initiator_index+i)%4;
                 }
             }
-            else if((top_card.suit != trump_suit) && (CardPower(top_card.rank) < CardPower(card.rank)))
+            else if((top_card.suit != trump_suit) && (card.suit == lead_suit) && (CardPower(top_card.rank) < CardPower(card.rank)))
             {
                 top_card = card;
-                winner_index = (winner_index+i)%4;
+                winner_index = (initiator_index+i)%4;
             }
         }
     }
@@ -190,8 +190,46 @@ void debugPoint()
 //change this.....................................................
 timeDataType get_finishing_time(const PlayPayload& payload, const timeDataType& starting_time)
 {
-    //for now
-    return starting_time + std::chrono::milliseconds(100);
+    //for now 1400
+    int time_to_take=0;
+    int32_t time_remaining;
+    if(payload.remaining_time < 300)
+        time_remaining = (payload.remaining_time * 2)/3;
+    else
+        time_remaining  = payload.remaining_time - 100;
+    switch(payload.hand_history.size())
+    {
+        case 0:
+            time_to_take = (time_remaining / 5);//350
+            break;
+        case 1:
+            time_to_take = (time_remaining / 5);//210
+            break;
+        case 2:
+            time_to_take = (time_remaining / 4);//168
+            break;
+        case 3:
+            time_to_take = (time_remaining / 4);//168
+            break;
+        case 4:
+            time_to_take = (time_remaining / 3);//126
+            break;
+        case 5:
+            time_to_take = (time_remaining / 3);//126
+            break;
+        case 6:
+            time_to_take = (payload.remaining_time/ 3);//126
+            break;
+        case 7:
+            time_to_take = (payload.remaining_time/3);//126
+            break;
+        default:
+            time_to_take = (payload.remaining_time / 2);
+            break;
+    }
+    if (time_to_take < 7 )
+        time_to_take = 7;
+    return starting_time + std::chrono::milliseconds(time_to_take);
 }
 
 int32_t get_bid(unsigned int key)

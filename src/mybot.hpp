@@ -73,7 +73,7 @@ public:
     void makeRandomMove();
     bool isTerminal();
     void display();
-    int result();
+    float result();
     
 };
 
@@ -86,13 +86,15 @@ public:
     unsigned int avail_count = 0;
     unsigned int visit_count = 0;
     float total_reward = 0;
+    float E_r2_by_n_ = 0;
     float UCB1_score = 0;
 
     Node* insert_child(const PlayAction&);
     Node* return_best_child(const Determinization&);
     bool no_children_present();
     bool all_children_present(const Determinization&);
-    void compute_ucb1();
+    float compute_ucb1();
+    float compute_ucb1_tuned();
     void increase_avail_count_of_compatible_children(const Determinization&);
     PlayAction get_absent_child(const Determinization&);
     Node* return_child_with_most_visits();

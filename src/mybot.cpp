@@ -135,7 +135,61 @@ Inference::Inference(const PlayPayload& payload)
             }
         }
         //for last card is same as lead but their team didn't win.
-        /*  NOTE : TOO complicated ... maybe later.
+        // int trump_revealed_hand = 8;
+        // int hand_points = 0;
+        // int hand_winner_index = 0;
+        // int initator_ind = 0;
+        // Card top_crd;
+        // Suit trump_sui = Suit::NOT_KNOWN;
+        // Suit lead_sui = Suit::NOT_KNOWN;
+        // if(std::holds_alternative<PlayPayload::RevealedObject>(payload.trumpRevealed))
+        // {
+        //     trump_revealed_hand = std::get<PlayPayload::RevealedObject>(payload.trumpRevealed).hand - 1;
+        //     trump_sui = std::get<Suit>(payload.trumpSuit);
+        // }
+        // std::vector<Card> winning_cards;
+        // for(int hand_count = 0 ; hand_count < payload.hand_history.size() ; hand_count++)
+        // {
+        //     auto hand = payload.hand_history.at(hand_count);
+
+        //     winning_cards.clear();
+            
+        //     lead_sui = hand.card.at(0).suit;
+        //     initator_ind = get_player_index(payload, hand.initiator);
+        //     hand_points = get_hand_points(hand.card);
+        //     if(hand_count < trump_revealed_hand)
+        //     {
+        //         top_crd = hand.card.at(get_hand_winner_index(hand.card,0,false,Suit::NOT_KNOWN));
+        //         for(auto cdp : unknown_cards)
+        //         {
+        //             if((CardPower(cdp.card.rank) > CardPower(top_crd.rank)) && (cdp.card.suit == lead_sui))
+        //                 winning_cards.push_back(cdp.card);
+        //         }
+        //         hand_winner_index = get_hand_winner_index(hand.card,initator_ind,false,Suit::NOT_KNOWN);
+        //         if((hand_winner_index != (initator_ind +3)%4) && (hand_winner_index != (initator_ind +1)%4))
+        //         {
+                    
+        //         }
+        //     }
+        //     else
+        //     {
+        //         top_crd = hand.card.at(get_hand_winner_index(hand.card,0,true,trump_sui));
+        //         for(auto cdp : unknown_cards)
+        //         {
+        //             if((top_crd.suit != trump_sui) && (CardPower(cdp.card.rank) > CardPower(top_crd.rank)) && (cdp.card.suit == lead_sui))
+        //                 winning_cards.push_back(cdp.card);
+        //             if((top_crd.suit == trump_sui) && (cdp.card.suit == trump_sui) && (CardPower(cdp.card.rank) > CardPower(top_crd.rank)))
+        //                 winning_cards.push_back(cdp.card);
+        //         }
+        //         hand_winner_index = get_hand_winner_index(hand.card,initator_ind,true,trump_sui);
+        //         if((hand_winner_index != (initator_ind +3)%4) && (hand_winner_index != (initator_ind +1)%4))
+        //         {
+                    
+        //         }
+        //     }
+
+        // }
+         /*  NOTE : TOO complicated ... maybe later.
         if((winner_index != last_player_index) && (winner_index != ((last_player_index+2)%4)) && (last_card.suit == lead_suit))
         {
             //find hand value and top card in hand
@@ -187,7 +241,7 @@ Inference::Inference(const PlayPayload& payload)
     if(trump_known == false)
         for(auto card : payload.cards)
         {
-            trump[card.suit] -= (CardValue(card.rank) * 5);
+            trump[card.suit] -= (CardValue(card.rank) * 10);
         }
 
     //sort the element of unknown_cards by their probablity sum
@@ -724,7 +778,10 @@ void Determinization::makeMove(const PlayAction& act)
 
 bool Determinization::isTerminal()
 {
-    if((our_points + opponent_points) == 28)
+    if((cards_with_player_index.at(0).size() == 0)
+        && (cards_with_player_index.at(1).size() == 0)
+        && (cards_with_player_index.at(2).size() == 0)
+        && (cards_with_player_index.at(3).size() == 0))
         return true;
     else
         return false;
@@ -799,42 +856,81 @@ PlayAction Node::get_absent_child(const Determinization& determinization)
     return PlayAction{PlayAction::Action::NoAction , Card{Rank::SEVEN,Suit::NOT_KNOWN}};
 }
 
-void Node::compute_ucb1()
+float Node::compute_ucb1()
 {
     if(avail_count == 0 || visit_count == 0)
     {
         std::cout << "Node::assign_ucb1 : Divide by Zero Error.\n";
-        return;
+        return 0;
     }
     else
     {
         UCB1_score = (
-            (total_reward / visit_count) 
-            + sqrt(2 * (log((float)avail_count)) / visit_count)
+            (total_reward / visit_count) + sqrt(2 * (log((float)avail_count)) / visit_count)
         );
     }
+    return UCB1_score;
+}
+
+float Node::compute_ucb1_tuned()
+{
+    /*
+     C = √( (logN / n) x min(1/4, V(n)) )
+     where V(n) is an upper confidence bound on the variance of the bandit, 
+     i.e.
+     V(n) = Σ(x_i² / n) - (Σ x_i / n)² + √(2log(N) / n)
+    and x_i are the rewards we got from the bandit so far.
+    */
+    if(avail_count == 0 || visit_count == 0)
+    {
+        std::cout << "Node::assign_ucb1 : Divide by Zero Error.\n";
+        return 0;
+    }
+    
+    float V = E_r2_by_n_ - pow((total_reward / visit_count),2) + sqrt((2*log(avail_count))/visit_count);
+    float C;
+    if(V < (0.25))
+    {
+        C = sqrt((log(avail_count)/visit_count) * V);
+    }
+    else
+    {
+        C = sqrt((log(avail_count)/visit_count) * 0.25);
+    }
+
+    UCB1_score = ((total_reward / visit_count) + C);
+    return UCB1_score;
 }
 
 Node* Node::return_best_child(const Determinization& determinization)
 {
     Node* best_child = nullptr;
+    float best_ucb;
+    float next_ucb;
     for(int i = 0; i < determinization.legal_actions.size(); i++)
     {
         for(int j = 0; j < children.size(); j++)
         {
             if((determinization.legal_actions.at(i) == children.at(j)->incoming_action))
             {
+                next_ucb = children.at(j)->compute_ucb1_tuned();
                 if(best_child == nullptr)
+                {
                     best_child = children.at(j);
-                else if(children.at(j)->UCB1_score > best_child->UCB1_score) 
+                    best_ucb = best_child->compute_ucb1_tuned();
+                }
+                else if(next_ucb > best_ucb) 
+                {
                     best_child = children.at(j);
+                    best_ucb = next_ucb;
+                }
             }
         }
     }
     return best_child;
 }
 
-int Determinization::result()
+float Determinization::result()
 {
     if(isTerminal())
     {
@@ -846,17 +942,17 @@ int Determinization::result()
             }
             else
             {
-                return -1;
+                return 0;
             }
         }
         else
-            return 0;
+            return 0.5;
     }
     else
     {
         std::cerr << "Determinization::result : Terminal determinization not reached yet\n";
     }
-    return -1;
+    return 0;
 }
 
 void Node::increase_avail_count_of_compatible_children(const Determinization& determinization)
@@ -899,19 +995,17 @@ void Determinization::makeRandomMove()
 
 PlayAction ismcts(const PlayPayload& payload, timeDataType starting_time)
 {   
-////    debugPoint("ismcts enter");
+
     timeDataType finishing_time = get_finishing_time(payload, starting_time);
     Inference inference{payload};
 	Determinization::staticParameters static_param{payload};
+
     Node root_node;
     Node* current_node_ptr;
- //   debugPoint("before loop");
+    int reward;
     while(finishing_time > std::chrono::high_resolution_clock::now())
-    //for(int i = 0 ; i < 10 ; i++ )
     {   
-  //      debugPoint("loop : top");
         Determinization determinization{payload , inference , static_param};
-  //      debugPoint("loop : after determinization");
         /*
         Node* current_node_ptr == &root_node;
         current_node_ptr = Node* ismctsSelect(Node* current_node_ptr, Determinization& determinization)
@@ -963,51 +1057,39 @@ PlayAction ismcts(const PlayPayload& payload, timeDataType starting_time)
         }
         */
         current_node_ptr = &root_node;
-  //      std::cout <<"\n"<< root_node.children.size() <<" " << current_node_ptr->children.size() <<"\n";
         current_node_ptr = ismctsSelect(current_node_ptr, determinization);
- //       debugPoint("loop : after select func");
-        int reward = ismctsSimulate(determinization);
-  //      debugPoint("loop : ager simulate func");
+
+        //
+        if(determinization.isTerminal() && current_node_ptr->visit_count > 0)
+        {
+            reward = 0;
+            ismctsBackpropagate(current_node_ptr , root_node , reward);
+            continue;
+        }
+        //
+
+        reward = ismctsSimulate(determinization);
         ismctsBackpropagate(current_node_ptr , root_node , reward);
-  //      debugPoint("loop : after backpropagate func");
     }
- //   debugPoint("after loop");
     
     return root_node.return_child_with_most_visits()->incoming_action;
 }
 Node* ismctsSelect(Node* current_node_ptr, Determinization& det)
 {
-    //std::cout <<"\n\n\n" << current_node_ptr->children.size() <<"\n";
-        
-    //debugPoint("select : start");
     while(!det.isTerminal())
     {
-        //debugPoint("select : not terminal");
         det.fillLegalMoves();
-        //debugPoint("select : after fill legal moves");
         if(current_node_ptr->all_children_present(det))
         {   
-            //debugPoint("select : all children present");
             current_node_ptr->increase_avail_count_of_compatible_children(det);
-       
-            //std::cout << "+";
-
             current_node_ptr = current_node_ptr->return_best_child(det);
-
-            //std::cout << "-";
-            //debugPoint("select : after return best child");
             det.makeMove(current_node_ptr->incoming_action);
-            //debugPoint("select : after make move");
         }
         else
         {
-            //debugPoint("select : not all children present");
             current_node_ptr->increase_avail_count_of_compatible_children(det);
-            //debugPoint("select : increasing avali cunt");
             current_node_ptr = current_node_ptr->insert_child(current_node_ptr->get_absent_child(det));
-            //debugPoint("select : after insert");
             det.makeMove(current_node_ptr->incoming_action);
-            //debugPoint("select : after make move");
             break;
         }
     
@@ -1021,7 +1103,6 @@ int ismctsSimulate(Determinization& det)
         det.fillLegalMoves();
         det.makeRandomMove();
     }
- //   std::cout << "\nsimulate() : reward : " << det.result() <<"\n";
 	
     return det.result();//0 for loss and 1 for win 
 }
@@ -1031,10 +1112,9 @@ void ismctsBackpropagate(Node* current_node, Node& root_node , int reward)
     {
         current_node->visit_count++;
         current_node->total_reward += reward;
-        current_node->compute_ucb1();
-  //      std::cout << "\nbackPropagate() : ucb1 : " << current_node->UCB1_score <<"\n";
-  //      std::cout << "\nbackPropagate() : visits : " << current_node->visit_count <<"\n";
-	
+        current_node->E_r2_by_n_ += (reward * reward) / current_node->visit_count;
+        //current_node->compute_ucb1();
+
         current_node = current_node->parent;
     }
 }
