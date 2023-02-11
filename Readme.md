@@ -1,7 +1,4 @@
-# Starter Code for Bhoos's Smart Bots 2023 
-
-Still wondering why the language that runs the world is missing from this grand competition? <br>
-Now's probably the right time to stop wondering, (>.<) <br>
+# Submitted Code for Bhoos's Smart Bots 2023 
 
 ## Installation
 
@@ -51,9 +48,3 @@ game.exe
 g++/clang++ ./src/main.cpp ./src/bot.cpp -ofast -std=c++17 -march=native -pthread -o game
 ./game
 ```
-
-<br>Info : This isn't thorougly tested. Feel free to report issues, bugs or unintended behaviors. If you have trouble with docker submission or face performance regression, remove `-march-native` from the compiler flag inside dockerfile. 
-
-## Docker
-
-You can install Docker from [here](https://www.docker.com/products/docker-desktop/).
